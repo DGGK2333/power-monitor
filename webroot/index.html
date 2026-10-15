@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>功率监测</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2230;
+    --fg:#e6edf3; --sub:#8b949e; --line:#30363d; --accent:#4dabf7;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,"PingFang SC","Microsoft YaHei",sans-serif;}
+  body{padding:12px;padding-bottom:32px;}
+  .head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  .head h1{font-size:18px;margin:0;font-weight:600;}
+  .head .sub{font-size:12px;color:var(--sub);}
+  .chip{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;background:var(--panel2);color:var(--sub);border:1px solid var(--line);}
+  .chip.on{color:#69db7c;border-color:#2b4a34;}
+  .chip.off{color:#ff6b6b;border-color:#4a2b2b;}
+  .stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;}
+  .stat .k{font-size:11px;color:var(--sub);margin-bottom:4px;}
+  .stat .v{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px;}
+  .card h2{font-size:13px;margin:0 0 10px;font-weight:600;color:var(--sub);display:flex;justify-content:space-between;align-items:center;}
+  .card h2 .tag{font-size:10px;font-weight:400;padding:2px 7px;border-radius:8px;border:1px solid var(--line);color:var(--sub);}
+  .card h2 .tag.live{color:#69db7c;border-color:#2b4a34;}
+  .chart-wrap{position:relative;width:100%;}
+  canvas{width:100%;display:block;border-radius:8px;background:#0a0e14;}
+  .legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+  .lg{display:flex;align-items:center;gap:5px;font-size:12px;padding:4px 9px;border-radius:20px;
+      background:var(--panel2);border:1px solid var(--line);cursor:pointer;user-select:none;opacity:.4;transition:opacity .15s;}
+  .lg.active{opacity:1;}
+  .lg .dot{width:9px;height:9px;border-radius:50%;}
+  .lg .val{margin-left:2px;font-variant-numeric:tabular-nums;color:var(--fg);font-weight:600;}
+  .btn-row{display:flex;gap:8px;flex-wrap:wrap;}
+  button{flex:1;min-width:80px;padding:10px 12px;border-radius:9px;border:1px solid var(--line);
+    background:var(--panel2);color:var(--fg);font-size:13px;font-weight:500;cursor:pointer;transition:filter .15s;}
+  button:active{filter:brightness(1.25);}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#06121f;font-weight:600;}
+  button.danger{background:#3a1f1f;border-color:#5a2b2b;color:#ff8787;}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+  .seg{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
+  .seg button{flex:0 0 auto;min-width:auto;font-size:12px;padding:6px 10px;}
+  .seg button.on{background:var(--accent);border-color:var(--accent);color:#06121f;font-weight:600;}
+  .ctrls{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;}
+  .ctrl{display:flex;align-items:center;gap:5px;font-size:12px;padding:5px 10px;border-radius:8px;
+        background:var(--panel2);border:1px solid var(--line);cursor:pointer;user-select:none;}
+  .ctrl input{accent-color:var(--accent);}
+  .live-box{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px;}
+  .live-row{display:grid;grid-template-columns:repeat(2,1fr);gap:8px 12px;}
+  .lv-k{font-size:11px;color:var(--sub);}
+  .lv-v{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;}
+  .sess-list{display:flex;flex-direction:column;gap:6px;}
+  .sess{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 10px;
+        display:grid;grid-template-columns:auto 1fr auto;gap:4px 10px;font-size:12px;}
+  .sess .idx{color:var(--sub);}
+  .sess .when{color:var(--fg);}
+  .sess .dur{font-variant-numeric:tabular-nums;font-weight:600;}
+  .sess.disch .dur{color:#ff922b;}
+  .sess.chg .dur{color:#38d9a9;}
+  .sess .detail{grid-column:1/-1;color:var(--sub);font-size:11px;font-variant-numeric:tabular-nums;}
+  .empty{color:var(--sub);font-size:12px;text-align:center;padding:14px 0;}
+  .pager{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px;}
+  .pager button{flex:0 0 auto;min-width:auto;padding:6px 12px;font-size:12px;}
+  .pager .pinfo{font-size:12px;color:var(--sub);font-variant-numeric:tabular-nums;min-width:64px;text-align:center;}
+  .hint{font-size:11px;color:var(--sub);line-height:1.6;margin-top:8px;}
+  .err{color:#ff8787;}
+</style>
+</head>
+<body>
+<div class="head">
+  <div><h1>功率监测</h1><div class="sub" id="devSub">骁龙 QPT · 功率 / 温度</div></div>
+  <span class="chip" id="runChip">检测中</span>
+</div>
+<div class="stat-row">
+  <div class="stat"><div class="k">整机功耗</div><div class="v" id="vBatt">--</div></div>
+  <div class="stat"><div class="k">CPU 温度</div><div class="v" id="vCpuT">--</div></div>
+  <div class="stat"><div class="k">GPU 温度</div><div class="v" id="vGpuT">--</div></div>
+</div>
+<div class="stat-row">
+  <div class="stat"><div class="k">SoC 功耗</div><div class="v" id="vSoc">--</div></div>
+  <div class="stat"><div class="k">充电功率</div><div class="v" id="vChg">--</div></div>
+  <div class="stat"><div class="k">电量 / 电池温</div><div class="v" id="vBat">--</div></div>
+</div>
+<div class="card">
+  <h2>曲线</h2>
+  <div class="seg">
+    <button id="win60" class="on">近1分钟</button>
+    <button id="win300">近5分钟</button>
+    <button id="win900">近15分钟</button>
+  </div>
+  <div class="ctrls">
+    <label class="ctrl"><input type="checkbox" id="axisPower" checked>功率轴(左)</label>
+    <label class="ctrl"><input type="checkbox" id="axisTemp" checked>温度轴(右)</label>
+  </div>
+  <div class="chart-wrap"><canvas id="chart" height="260"></canvas></div>
+  <div class="legend" id="legend"></div>
+  <div class="hint">点击图例可显示/隐藏对应曲线。左轴=功率(W)，右轴=温度(℃)。</div>
+</div>
+<div class="card">
+  <h2>放电统计 <span class="tag" id="dischTag">--</span></h2>
+  <div class="live-box"><div class="live-row">
+    <div><div class="lv-k">起始时间</div><div class="lv-v" id="d-start">--</div></div>
+    <div><div class="lv-k">已持续</div><div class="lv-v" id="d-dur">--</div></div>
+    <div><div class="lv-k">平均功率</div><div class="lv-v" id="d-avg">--</div></div>
+    <div><div class="lv-k">峰值功率</div><div class="lv-v" id="d-max">--</div></div>
+  </div></div>
+  <div class="sess-list" id="dischList"><div class="empty">暂无历史放电记录</div></div>
+  <div class="pager" id="dischPager" style="display:none">
+    <button id="dPrev">上一页</button><span class="pinfo" id="dPage">1/1</span><button id="dNext">下一页</button>
+  </div>
+</div>
+<div class="card">
+  <h2>充电统计 <span class="tag" id="chgTag">--</span></h2>
+  <div class="live-box"><div class="live-row">
+    <div><div class="lv-k">起始时间</div><div class="lv-v" id="c-start">--</div></div>
+    <div><div class="lv-k">已持续</div><div class="lv-v" id="c-dur">--</div></div>
+    <div><div class="lv-k">平均功率</div><div class="lv-v" id="c-avg">--</div></div>
+    <div><div class="lv-k">电量变化</div><div class="lv-v" id="c-cap">--</div></div>
+  </div></div>
+  <div class="sess-list" id="chgList"><div class="empty">暂无历史充电记录</div></div>
+  <div class="pager" id="chgPager" style="display:none">
+    <button id="cPrev">上一页</button><span class="pinfo" id="cPage">1/1</span><button id="cNext">下一页</button>
+  </div>
+</div>
+<div class="card">
+  <h2>控制</h2>
+  <div class="btn-row">
+    <button class="primary" id="startBtn">开始采样</button>
+    <button class="danger" id="stopBtn">停止采样</button>
+    <button id="clearBtn">清空实时</button>
+    <button id="clearArchBtn">清空归档</button>
+  </div>
+  <div class="hint" id="hintMsg">采样由后台守护进程完成；会话结束后自动归档，永久保留。</div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

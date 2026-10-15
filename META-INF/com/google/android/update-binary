@@ -1,0 +1,10 @@
+#!/sbin/sh
+umask 022
+OUTFD=$2
+ZIPFILE=$3
+rm -rf /data/adb/modules/power_monitor
+mkdir -p /data/adb/modules/power_monitor
+unzip -o "$ZIPFILE" -d /data/adb/modules/power_monitor 'module.prop' 'service.sh' 'bin/*' 'webroot/*' 'README.md' 'DESIGN.md'
+chmod 0755 /data/adb/modules/power_monitor/service.sh /data/adb/modules/power_monitor/bin/*.sh
+rm -rf /data/adb/modules/power_monitor/META-INF
+exit 0

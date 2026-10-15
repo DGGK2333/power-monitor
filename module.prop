@@ -1,0 +1,6 @@
+id=power_monitor
+name=Power Monitor
+version=v5.1
+versionCode=6
+author=Operit
+description=骁龙 QPT 实时功率/温度/充放电监测，双Y轴曲线 + 会话统计 + 持久化归档（低功耗，待机额外功耗仅约0.2-0.5mW）。
